@@ -1,7 +1,7 @@
 #include "chip8.h"
 #include <stdio.h>
 
-void setFont(CHIP8 *chip){
+void setFont(struct CHIP8 *chip){
     //font
     uint8_t values[] = 
     { 0xF0, 0x90, 0x90, 0x90, 0xF0, //0
@@ -34,10 +34,12 @@ struct CHIP8* initCHIP8(){
     memset(chip->registers, 0, 16 * sizeof(uint8_t));
     chip->I = 0x0000;
     chip->pc = 0x200;
+    chip->sp = 0x0000;
     chip->delay_timer = 0x00;
     chip->sound_timer = 0x00;
     memset(chip->graphics, 0, 64 * 32 * sizeof(bool));
     chip->opcode = 0x0000;
+    memset(chip->keys, 0, 16 * sizeof(bool));
     setFont(chip);
 
     return chip;
@@ -117,7 +119,7 @@ void decode(struct CHIP8* chip){
                         break;
                            }
                     case 5:
-                        chip->registers[0xF] = chip->registers[X] > chip->registers[Y];
+                        chip->registers[0xF] = chip->registers[X] >= chip->registers[Y];
                         chip->registers[X] -= chip->registers[Y];
                         break;
                     case 6:
@@ -125,11 +127,11 @@ void decode(struct CHIP8* chip){
                         chip->registers[X] >>= 1;
                         break;
                     case 7:
-                        chip->registers[0xF] = chip->registers[Y] > chip->registers[X];
+                        chip->registers[0xF] = chip->registers[Y] >= chip->registers[X];
                         chip->registers[X] = chip->registers[Y] - chip->registers[X];
                         break;
                     case 0xE:
-                        chip->registers[0xF] = chip->registers[X] & 0x80;
+                        chip->registers[0xF] = (chip->registers[X] & 0x80) >> 4;
                         chip->registers[X] <<= 1;
                         break;
                 }
@@ -160,6 +162,14 @@ void decode(struct CHIP8* chip){
             }
             break;
         case 0xE:
+            switch(NN){
+                case 0x9E:
+                    chip->pc += 2 * (chip->keys[chip->registers[X]] == 1);
+                    break;
+                case 0xA1:
+                    chip->pc += 2 * (chip->keys[chip->registers[X]] != 1);
+                    break;
+            }
             break;
         case 0xF:
             switch(instruction & 0x00FF){
@@ -167,7 +177,19 @@ void decode(struct CHIP8* chip){
                     chip->registers[X] = chip->delay_timer;
                     break;
                 case 0x0A:
-                    break;
+                    {
+                        bool pressed = 0;
+                        for(uint8_t i = 0; i < 16; i++){
+                            if(chip->keys[i] == 1){
+                                chip->registers[X] = i;
+                                pressed = 1;
+                                break;
+                            }
+                        }
+                        if(!pressed) chip->pc -= 2;
+                            
+                        break;
+                    }
                 case 0x15:
                     chip->delay_timer = chip->registers[X];
                     break;

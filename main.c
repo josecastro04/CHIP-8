@@ -1,62 +1,135 @@
+#include <SDL2/SDL.h>
 #include <stdio.h>
 #include "chip8.h"
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-int main(int argc, char **argv){
-    if(argc != 2){
-        printf("./main <Chip-8 ROM>");
-        return -1;
-    }
-    printf("%s %s\n", argv[0], argv[1]);
-    
-    struct CHIP8* chip = initCHIP8();
+#define SCREEN_WIDTH 960
+#define SCREEN_HEIGHT 320
+#define WINDOW_TITLE "Chip-8"
 
-    int fd = open(argv[1], O_RDONLY);
-    if(fd == -1){
-        printf("Error while opening the file!");
-        return -1;
+
+struct Screen{
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+};
+
+int sdl_init(struct Screen *screen){
+
+    if(SDL_Init(SDL_INIT_VIDEO)){
+        fprintf(stderr, "Error initializing SDL: %s\n", SDL_GetError());
+        return 1;
     }
+    
+    screen->window = SDL_CreateWindow(WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+    if(!screen->window){
+        fprintf(stderr, "Error creating window: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    screen->renderer = SDL_CreateRenderer(screen->window, -1, 0);
+    if(!screen->renderer){
+        fprintf(stderr, "Error creating render: %s\n", SDL_GetError());
+        return 1;
+    }
+    return 0;
+}
+
+void screen_cleanup(struct Screen *screen, int exit_status){
+    SDL_DestroyRenderer(screen->renderer);
+    SDL_DestroyWindow(screen->window);
+    SDL_Quit();
+
+    exit(exit_status);
+}
+
+void load_ROM(struct CHIP8 *chip, char *filename){
+    int fd = open(filename, O_RDONLY);
+    if(fd == -1){
+        perror("Error while opening the file!");
+        exit(EXIT_FAILURE);
+    }
+
     uint16_t start_pos = 0x200;
     uint8_t buffer[256];
     ssize_t bytes = 0;
     while((bytes = read(fd, buffer, 256)) > 0){
-        //printf("%ld\n", bytes);
         for(ssize_t i = 0; i < bytes; i++){
-            chip->memory[start_pos + i] = buffer[i];
-            //printf("%x", chip->memory[start_pos + i]);
+            chip->memory[start_pos++] = buffer[i];
         }
-        start_pos += bytes;
     }
 
     close(fd);
-    for(;;){
-        fetch(chip);
-        decode(chip);
-        printf("\033[H");
-        for(uint8_t y = 0; y < 32; y++){
-            for(uint8_t x = 0; x < 64; x++){
-                char pixel = chip->graphics[x + y * 64] ? '#' : ' ';
-                printf("%c", pixel);
-            }
-            printf("\n");
+}
+
+void drawScreen(struct Screen *screen, struct CHIP8 *chip){
+    SDL_Rect rects[64 * 32];
+    int number_of_rects = 0;
+    for(uint8_t y = 0; y < 32; y++){
+        for(uint8_t x = 0; x < 64; x++){
+            if(chip->graphics[x + y * 64])
+                rects[number_of_rects++] = (SDL_Rect){ .x = x * 15, .y = y * 10, .w = 14, .h = 9};
         }
-        fflush(stdout);
-    }
-   /* 
-    printf("\n\n");
-    for(int i = 0x200; i < 0x200 + 148; i++){
-        printf("%x", chip->memory[i]);
     }
 
-    int x;
-    scanf("%d", &x);
-    for(int y = 0; y < 32; y++){
-        for(int x = 0; x < 64; x++){
-            printf("%d", chip->graphics[x + y * 64]);
+    SDL_SetRenderDrawColor(screen->renderer, 255, 255, 255, 0);
+    if(SDL_RenderFillRects(screen->renderer, rects, number_of_rects - 1)){
+        fprintf(stderr, "Error drawing rects: %s\n", SDL_GetError());
+        screen_cleanup(screen, EXIT_FAILURE);
+    }
+    SDL_SetRenderDrawColor(screen->renderer, 0, 0, 0, 0);
+}
+
+
+int main(int argc, char **argv){
+    
+    if(argc != 2){
+        perror("./main <Chip-8 ROM>");
+        exit(EXIT_FAILURE);
+    }
+
+    struct Screen screen = {
+        .window = NULL,
+        .renderer = NULL,
+    };
+
+    if(sdl_init(&screen)){
+        screen_cleanup(&screen, EXIT_FAILURE);
+    }
+
+    struct CHIP8* chip = initCHIP8();
+
+    load_ROM(chip, argv[1]);
+
+    while(1){
+        SDL_Event event;
+        while(SDL_PollEvent(&event)){
+            switch(event.type){
+                case SDL_QUIT:
+                    screen_cleanup(&screen, EXIT_SUCCESS);
+                    break;
+                case SDL_KEYDOWN:
+                    switch(event.key.keysym.scancode){
+                        case SDL_SCANCODE_ESCAPE:
+                            screen_cleanup(&screen, EXIT_SUCCESS);
+                            break;
+                        default:
+                            break;
+                    }
+                default:
+                    break;
+            }
         }
-        printf("\n");
-    }*/
+
+        fetch(chip);
+        decode(chip);
+        SDL_RenderClear(screen.renderer);
+        drawScreen(&screen, chip);
+        SDL_RenderPresent(screen.renderer);
+        SDL_Delay(16);
+    }
+
+    screen_cleanup(&screen, EXIT_SUCCESS);
     return 0;
 }

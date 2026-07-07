@@ -24,7 +24,7 @@ typedef struct CHIP8{
     uint8_t sound_timer;
 
     //Input
-    uint8_t key; 
+    bool keys[16]; 
 
     //Graphics and Sound
     bool graphics[64*32];
