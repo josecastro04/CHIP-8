@@ -131,7 +131,7 @@ void decode(struct CHIP8* chip){
                         chip->registers[X] = chip->registers[Y] - chip->registers[X];
                         break;
                     case 0xE:
-                        chip->registers[0xF] = (chip->registers[X] & 0x80) >> 4;
+                        chip->registers[0xF] = (chip->registers[X] & 0x80) >> 7;
                         chip->registers[X] <<= 1;
                         break;
                 }
@@ -146,6 +146,7 @@ void decode(struct CHIP8* chip){
             chip->pc = NNN + chip->registers[0x0];
             break;
         case 0xC:
+                chip->registers[X] = (rand() % 0x100) & NN;
             break;
         case 0xD:
             chip->registers[0xF] = 0x0;
@@ -154,10 +155,10 @@ void decode(struct CHIP8* chip){
                
                 for(uint8_t j = 0x0; j < 8; j++){
                     bool sprite_bit = (sprite >> (8 - (j + 1))) & 0x1;
-                    bool graphics_bit = chip->graphics[((chip->registers[X] % 64) + j) + ((chip->registers[Y] % 32) + i)  * 64];
+                    bool graphics_bit = chip->graphics[((chip->registers[X] +j) % 64) + ((chip->registers[Y] +i) % 32)  * 64];
                     chip->registers[0xF] |= (sprite_bit & graphics_bit);
 
-                    chip->graphics[((chip->registers[X] % 64) + j) + ((chip->registers[Y] % 32) + i) * 64] ^= sprite_bit;
+                    chip->graphics[((chip->registers[X] + j) % 64) + ((chip->registers[Y] + i) % 32) * 64] ^= sprite_bit;
                 }
             }
             break;
