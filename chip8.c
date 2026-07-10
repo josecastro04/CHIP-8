@@ -112,28 +112,43 @@ void decode(struct CHIP8* chip){
                     case 3:
                         chip->registers[X] ^= chip->registers[Y];
                         break;
-                    case 4:{
+                    case 4:
+                    {
                         uint16_t result = chip->registers[X] + chip->registers[Y];
-                        chip->registers[0xF] = (result > 0xFF);
                         chip->registers[X] = (uint8_t)result;
+                        chip->registers[0xF] = result > 0xFF;
                         break;
-                           }
+                    }
                     case 5:
-                        chip->registers[0xF] = chip->registers[X] >= chip->registers[Y];
-                        chip->registers[X] -= chip->registers[Y];
+                    {
+                        uint8_t register_X = chip->registers[X];
+                        uint16_t result = register_X - chip->registers[Y];
+                        chip->registers[X] = (uint8_t)result;
+                        chip->registers[0xF] = register_X >= chip->registers[Y];
                         break;
+                    }
                     case 6:
-                        chip->registers[0xF] = chip->registers[X] & 0x1;
+                    {
+                        uint8_t register_Y = chip->registers[Y];
                         chip->registers[X] >>= 1;
+                        chip->registers[0xF] = register_Y & 0x1;
                         break;
+                    }
                     case 7:
-                        chip->registers[0xF] = chip->registers[Y] >= chip->registers[X];
-                        chip->registers[X] = chip->registers[Y] - chip->registers[X];
+                    {
+                        uint8_t register_X = chip->registers[X];
+                        uint16_t result = chip->registers[Y] - register_X;
+                        chip->registers[X] = (uint8_t)result;
+                        chip->registers[0xF] = chip->registers[Y] >= register_X;
                         break;
+                    }
                     case 0xE:
-                        chip->registers[0xF] = (chip->registers[X] & 0x80) >> 7;
+                    {
+                        uint8_t register_Y = chip->registers[Y];
                         chip->registers[X] <<= 1;
+                        chip->registers[0xF] = (register_Y & 0x80) >> 7;
                         break;
+                    }
                 }
             break;
         case 0x9:
