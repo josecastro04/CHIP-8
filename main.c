@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 #define SCREEN_WIDTH 960
-#define SCREEN_HEIGHT 320
+#define SCREEN_HEIGHT 480
 #define WINDOW_TITLE "Chip-8"
 
 
@@ -17,7 +17,7 @@ struct Screen{
 
 int sdl_init(struct Screen *screen){
 
-    if(SDL_Init(SDL_INIT_VIDEO)){
+    if(SDL_Init(SDL_INIT_EVERYTHING)){
         fprintf(stderr, "Error initializing SDL: %s\n", SDL_GetError());
         return 1;
     }
@@ -69,7 +69,7 @@ void drawScreen(struct Screen *screen, struct CHIP8 *chip){
     for(uint8_t y = 0; y < 32; y++){
         for(uint8_t x = 0; x < 64; x++){
             if(chip->graphics[x + y * 64])
-                rects[number_of_rects++] = (SDL_Rect){ .x = x * 15, .y = y * 10, .w = 14, .h = 9};
+                rects[number_of_rects++] = (SDL_Rect){ .x = x * 15, .y = y * 15, .w = 14, .h = 14};
         }
     }
 
@@ -231,7 +231,7 @@ int main(int argc, char **argv){
         }
         uint64_t initial = SDL_GetPerformanceCounter();
         instruction_counter = 1;
-        while(instruction_counter <= 10){
+        while(instruction_counter <= 8){
             fetch(chip);
             decode(chip);
             instruction_counter++;

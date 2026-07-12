@@ -105,12 +105,15 @@ void decode(struct CHIP8* chip){
                         break;
                     case 1:
                         chip->registers[X] |= chip->registers[Y];
+                        chip->registers[0xF] = 0x0; //NOTE: CHIP-8 only
                         break;
                     case 2:
                         chip->registers[X] &= chip->registers[Y];
+                        chip->registers[0xF] = 0x0; //NOTE: CHIP-8 only
                         break;
                     case 3:
                         chip->registers[X] ^= chip->registers[Y];
+                        chip->registers[0xF] = 0x0; //NOTE: CHIP-8 only
                         break;
                     case 4:
                     {
@@ -130,7 +133,7 @@ void decode(struct CHIP8* chip){
                     case 6:
                     {
                         uint8_t register_Y = chip->registers[Y];
-                        chip->registers[X] >>= 1;
+                        chip->registers[X] = register_Y >> 1;
                         chip->registers[0xF] = register_Y & 0x1;
                         break;
                     }
@@ -145,14 +148,14 @@ void decode(struct CHIP8* chip){
                     case 0xE:
                     {
                         uint8_t register_Y = chip->registers[Y];
-                        chip->registers[X] <<= 1;
-                        chip->registers[0xF] = (register_Y & 0x80) >> 7;
+                        chip->registers[X] = register_Y << 0x1;
+                        chip->registers[0xF] = (register_Y & 0x80) >> 0x7;
                         break;
                     }
                 }
             break;
         case 0x9:
-            chip->pc += (2 * (chip->registers[X] != chip->registers[Y]));
+            chip->pc += (0x2 * (chip->registers[X] != chip->registers[Y]));
             break;
         case 0xA:
             chip->I = NNN;
@@ -165,25 +168,31 @@ void decode(struct CHIP8* chip){
             break;
         case 0xD:
             chip->registers[0xF] = 0x0;
+            uint8_t coordinate_X = chip->registers[X] % 0x40;
+            uint8_t coordinate_Y = chip->registers[Y] % 0x20;
             for(uint8_t i = 0x0; i < N; ++i){
                 uint8_t sprite = chip->memory[chip->I + i];
                
-                for(uint8_t j = 0x0; j < 8; j++){
-                    bool sprite_bit = (sprite >> (8 - (j + 1))) & 0x1;
-                    bool graphics_bit = chip->graphics[((chip->registers[X] +j) % 64) + ((chip->registers[Y] +i) % 32)  * 64];
+                for(uint8_t j = 0x0; j < 0x8; j++){
+                    bool sprite_bit = (sprite >> (0x8 - (j + 0x1))) & 0x1;
+                    bool graphics_bit = chip->graphics[(coordinate_X + j) + (coordinate_Y + i)  * 0x40];
                     chip->registers[0xF] |= (sprite_bit & graphics_bit);
-
-                    chip->graphics[((chip->registers[X] + j) % 64) + ((chip->registers[Y] + i) % 32) * 64] ^= sprite_bit;
+                    chip->graphics[(coordinate_X + j) + (coordinate_Y + i) * 0x40] ^= sprite_bit;
+                    
+                    if(coordinate_X + j == 0x3F) break;
                 }
+
+                if(coordinate_Y + i == 0x1F) break;
+
             }
             break;
         case 0xE:
             switch(NN){
                 case 0x9E:
-                    chip->pc += 2 * (chip->keys[chip->registers[X]] == 1);
+                    chip->pc += 0x2 * (chip->keys[chip->registers[X]] == 0x1);
                     break;
                 case 0xA1:
-                    chip->pc += 2 * (chip->keys[chip->registers[X]] != 1);
+                    chip->pc += 0x2 * (chip->keys[chip->registers[X]] != 0x1);
                     break;
             }
             break;
@@ -194,15 +203,24 @@ void decode(struct CHIP8* chip){
                     break;
                 case 0x0A:
                     {
-                        bool pressed = 0;
-                        for(uint8_t i = 0; i < 16; i++){
-                            if(chip->keys[i] == 1){
-                                chip->registers[X] = i;
-                                pressed = 1;
+                        static bool pressed = 0x0;
+                        static uint8_t key = 0xFF;
+                        for(uint8_t i = 0x0; key == 0xFF && i < 0x10; i++){
+                            if(chip->keys[i] == 0x1){
+                                key = i;
+                                pressed = 0x1;
                                 break;
                             }
                         }
-                        if(!pressed) chip->pc -= 2;
+                        if(!pressed) chip->pc -= 0x2;
+                        else{
+                            if(chip->keys[key]) chip->pc -= 0x2;
+                            else{
+                                chip->registers[X] = key;
+                                key = 0xFF;
+                                pressed = 0x0;
+                            }
+                        }
                             
                         break;
                     }
